@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Habit Tracker</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f5f7fa; color: #333; }
+
+    .app { max-width: 1400px; margin: 0 auto; padding: 16px; }
+
+    /* Header */
+    .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
+    .month-title { font-size: 2rem; font-weight: 700; color: #2d3748; }
+    .stats-row { display: flex; gap: 32px; align-items: center; }
+    .stat-box { text-align: center; }
+    .stat-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: #718096; }
+    .stat-value { font-size: 1.6rem; font-weight: 700; color: #2d3748; }
+    .completion-bar { width: 80px; height: 36px; background: #48bb78; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 0.85rem; }
+
+    /* Main grid */
+    .tracker-card { background: white; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); overflow-x: auto; margin-bottom: 16px; }
+    .tracker-table { width: 100%; border-collapse: collapse; min-width: 900px; }
+
+    /* Week header */
+    .week-header th { background: #edf2f7; font-size: 0.7rem; font-weight: 600; text-align: center; color: #4a5568; padding: 6px 2px; border-right: 1px solid #e2e8f0; }
+    .week-header .week-label { background: #cbd5e0; font-size: 0.65rem; letter-spacing: 1px; text-transform: uppercase; }
+
+    /* Day header */
+    .day-header th { font-size: 0.62rem; text-align: center; color: #718096; padding: 3px 2px; border-right: 1px solid #e2e8f0; }
+    .day-header .habit-col { text-align: left; padding-left: 10px; font-weight: 600; font-size: 0.72rem; color: #4a5568; }
+    .day-header .day-num { font-size: 0.7rem; font-weight: 700; color: #4a5568; }
+    .day-header .day-name { font-size: 0.58rem; color: #a0aec0; }
+
+    /* Habit rows */
+    .habit-row td { border-right: 1px solid #f0f0f0; border-bottom: 1px solid #f7f7f7; text-align: center; padding: 2px; }
+    .habit-row:hover { background: #f8f9ff; }
+    .habit-name-cell { text-align: left !important; padding: 5px 10px !important; font-size: 0.78rem; font-weight: 500; white-space: nowrap; min-width: 160px; }
+    .habit-emoji { margin-right: 4px; }
+    .future-cell { background: #fafafa; }
+    .empty-day { background: #fafafa; }
+
+    /* Checkbox styling */
+    .day-checkbox { width: 16px; height: 16px; cursor: pointer; accent-color: #4c6ef5; }
+
+    /* Progress rows */
+    .progress-section td { font-size: 0.68rem; text-align: center; padding: 4px 2px; border-right: 1px solid #e2e8f0; }
+    .progress-section .label-cell { text-align: left; padding-left: 10px; font-weight: 600; font-size: 0.7rem; color: #4a5568; }
+    .progress-pct { font-weight: 700; color: #48bb78; }
+    .progress-done { font-weight: 600; color: #4c6ef5; }
+    .progress-notdone { font-weight: 600; color: #fc8181; }
+
+    /* Chart */
+    .chart-section { background: white; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 16px; margin-bottom: 16px; }
+    .chart-container { position: relative; height: 160px; }
+    .section-title { font-size: 0.8rem; font-weight: 600; color: #718096; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+
+    /* Mood / Motivation */
+    .mood-section { background: white; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); overflow-x: auto; margin-bottom: 16px; }
+    .mood-table { width: 100%; border-collapse: collapse; min-width: 900px; }
+    .mood-table td, .mood-table th { font-size: 0.68rem; text-align: center; padding: 5px 2px; border-right: 1px solid #f0f0f0; }
+    .mood-label { text-align: left !important; padding-left: 10px !important; font-weight: 600; font-size: 0.72rem; color: #4a5568; min-width: 160px; }
+    .mood-select { width: 22px; height: 22px; border: 1px solid #e2e8f0; border-radius: 50%; cursor: pointer; font-size: 0.7rem; text-align: center; background: white; }
+    .mood-dot { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #e2e8f0; cursor: pointer; margin: auto; transition: background 0.2s; }
+    .mood-dot:hover { border-color: #4c6ef5; }
+    .mood-dot.m1 { background: #fc8181; border-color: #fc8181; }
+    .mood-dot.m2 { background: #fbd38d; border-color: #fbd38d; }
+    .mood-dot.m3 { background: #fefcbf; border-color: #fefcbf; }
+    .mood-dot.m4 { background: #9ae6b4; border-color: #9ae6b4; }
+    .mood-dot.m5 { background: #48bb78; border-color: #48bb78; }
+
+    /* Month tabs */
+    .tabs { display: flex; gap: 4px; flex-wrap: wrap; background: white; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 10px 14px; }
+    .tab { padding: 5px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; transition: all 0.15s; color: #718096; background: #f7f8fa; }
+    .tab:hover { background: #edf2f7; color: #4a5568; }
+    .tab.active { background: #4c6ef5; color: white; border-color: #4c6ef5; }
+    .tab.special { background: #edf2f7; color: #4a5568; }
+
+    /* Add habit button */
+    .add-habit-btn { margin: 8px 10px; padding: 5px 14px; background: #4c6ef5; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.75rem; font-weight: 600; }
+    .add-habit-btn:hover { background: #3b5bdb; }
+
+    /* Mental state header for mood */
+    .mental-state-header { text-align: right; padding-right: 12px; font-size: 0.7rem; font-weight: 700; color: #4a5568; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DAYS_OF_WEEK = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+
+const DEFAULT_HABITS = [
+  { id: 1, name: 'Wake up at 5:00', emoji: '⏰' },
+  { id: 2, name: 'Gym', emoji: '💪' },
+  { id: 3, name: 'Reading / Learning', emoji: '📚' },
+  { id: 4, name: 'Day Planning', emoji: '📅' },
+  { id: 5, name: 'Budget Tracking', emoji: '💰' },
+  { id: 6, name: 'Project Work', emoji: '🚀' },
+  { id: 7, name: 'No Alcohol', emoji: '🚫' },
+  { id: 8, name: 'Social Media Detox', emoji: '📵' },
+  { id: 9, name: 'Goal Journaling', emoji: '📓' },
+  { id: 10, name: 'Cold Shower', emoji: '🚿' },
+];
+
+function getDaysInMonth(year, month) {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+function getFirstDayOfWeek(year, month) {
+  return new Date(year, month, 1).getDay();
+}
+
+function groupDaysByWeek(year, month) {
+  const totalDays = getDaysInMonth(year, month);
+  const firstDay = getFirstDayOfWeek(year, month);
+  const weeks = [];
+  let week = new Array(firstDay).fill(null);
+  for (let d = 1; d <= totalDays; d++) {
+    week.push(d);
+    if (week.length === 7) { weeks.push(week); week = []; }
+  }
+  if (week.length) {
+    while (week.length < 7) week.push(null);
+    weeks.push(week);
+  }
+  return weeks;
+}
+
+function storageKey(year, month) { return `ht_${year}_${month}`; }
+
+function loadData(year, month) {
+  try { return JSON.parse(localStorage.getItem(storageKey(year, month))) || {}; } catch { return {}; }
+}
+function saveData(year, month, data) {
+  localStorage.setItem(storageKey(year, month), JSON.stringify(data));
+}
+
+function HabitTracker() {
+  const today = new Date();
+  const [currentYear, setCurrentYear] = useState(today.getFullYear());
+  const [currentMonth, setCurrentMonth] = useState(today.getMonth());
+  const [habits, setHabits] = useState(DEFAULT_HABITS);
+  const [data, setData] = useState(() => loadData(today.getFullYear(), today.getMonth()));
+  const [mood, setMood] = useState({});
+  const [motivation, setMotivation] = useState({});
+  const [newHabitName, setNewHabitName] = useState('');
+  const [showAddHabit, setShowAddHabit] = useState(false);
+  const chartRef = useRef(null);
+  const chartInstance = useRef(null);
+
+  const weeks = groupDaysByWeek(currentYear, currentMonth);
+  const totalDays = getDaysInMonth(currentYear, currentMonth);
+  const allDays = Array.from({length: totalDays}, (_, i) => i + 1);
+
+  // Load data when month/year changes
+  useEffect(() => {
+    const d = loadData(currentYear, currentMonth);
+    setData(d);
+    setMood(d._mood || {});
+    setMotivation(d._motivation || {});
+  }, [currentYear, currentMonth]);
+
+  // Save data on change
+  useEffect(() => {
+    const merged = { ...data, _mood: mood, _motivation: motivation };
+    saveData(currentYear, currentMonth, merged);
+  }, [data, mood, motivation, currentYear, currentMonth]);
+
+  // Compute per-day stats
+  const getDayStats = useCallback((day) => {
+    let done = 0;
+    habits.forEach(h => {
+      if (data[`${h.id}_${day}`]) done++;
+    });
+    const notDone = habits.length - done;
+    const pct = habits.length ? Math.round((done / habits.length) * 100) : 0;
+    return { done, notDone, pct };
+  }, [data, habits]);
+
+  const totalCompleted = allDays.reduce((acc, d) => acc + getDayStats(d).done, 0);
+
+  // Chart
+  useEffect(() => {
+    if (!chartRef.current) return;
+    if (chartInstance.current) chartInstance.current.destroy();
+    const labels = allDays.map(d => d);
+    const values = allDays.map(d => getDayStats(d).pct);
+    chartInstance.current = new Chart(chartRef.current, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Daily Progress %',
+          data: values,
+          borderColor: '#48bb78',
+          backgroundColor: 'rgba(72,187,120,0.15)',
+          fill: true,
+          tension: 0.4,
+          pointRadius: 3,
+          pointBackgroundColor: '#48bb78',
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { min: 0, max: 100, ticks: { callback: v => v + '%', font: { size: 10 } }, grid: { color: '#f0f0f0' } },
+          x: { ticks: { font: { size: 9 } }, grid: { display: false } }
+        }
+      }
+    });
+    return () => { if (chartInstance.current) chartInstance.current.destroy(); };
+  }, [data, currentMonth, currentYear, habits]);
+
+  function toggleHabit(habitId, day) {
+    const key = `${habitId}_${day}`;
+    setData(prev => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  function isToday(day) {
+    return today.getFullYear() === currentYear && today.getMonth() === currentMonth && today.getDate() === day;
+  }
+  function isFuture(day) {
+    const d = new Date(currentYear, currentMonth, day);
+    return d > today;
+  }
+
+  function addHabit() {
+    const name = newHabitName.trim();
+    if (!name) return;
+    const id = Date.now();
+    setHabits(prev => [...prev, { id, name, emoji: '✅' }]);
+    setNewHabitName('');
+    setShowAddHabit(false);
+  }
+
+  function removeHabit(id) {
+    setHabits(prev => prev.filter(h => h.id !== id));
+  }
+
+  function cycleMood(day, type) {
+    const setter = type === 'mood' ? setMood : setMotivation;
+    setter(prev => {
+      const cur = prev[day] || 0;
+      return { ...prev, [day]: (cur % 5) + 1 };
+    });
+  }
+
+  function MoodDot({ day, type }) {
+    const val = (type === 'mood' ? mood : motivation)[day] || 0;
+    return (
+      <div
+        className={`mood-dot ${val ? 'm' + val : ''}`}
+        title={['','Bad','Poor','Okay','Good','Great'][val] || 'Click to rate'}
+        onClick={() => cycleMood(day, type)}
+      />
+    );
+  }
+
+  return (
+    <div className="app">
+      {/* Header */}
+      <div className="header">
+        <div className="month-title">{MONTHS[currentMonth].replace('Jan','January').replace('Feb','February').replace('Mar','March').replace('Apr','April').replace('May','May').replace('Jun','June').replace('Jul','July').replace('Aug','August').replace('Sep','September').replace('Oct','October').replace('Nov','November').replace('Dec','December')}</div>
+        <div className="stats-row">
+          <div className="stat-box">
+            <div className="stat-label">Number of habits</div>
+            <div className="stat-value">{habits.length}</div>
+          </div>
+          <div className="stat-box">
+            <div className="stat-label">Completed habits</div>
+            <div className="stat-value">{totalCompleted}</div>
+          </div>
+          <div className="completion-bar">
+            {habits.length && allDays.length ? Math.round(totalCompleted / (habits.length * allDays.length) * 100) : 0}%
+          </div>
+        </div>
+      </div>
+
+      {/* Main tracker grid */}
+      <div className="tracker-card">
+        <button className="add-habit-btn" onClick={() => setShowAddHabit(s => !s)}>
+          + Add Habit
+        </button>
+        {showAddHabit && (
+          <div style={{display:'flex', gap:8, padding:'0 10px 10px', alignItems:'center'}}>
+            <input
+              value={newHabitName}
+              onChange={e => setNewHabitName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addHabit()}
+              placeholder="Habit name..."
+              style={{padding:'5px 10px', borderRadius:6, border:'1px solid #e2e8f0', fontSize:'0.8rem', flex:1, maxWidth:260}}
+            />
+            <button onClick={addHabit} style={{padding:'5px 12px', background:'#48bb78', color:'white', border:'none', borderRadius:6, cursor:'pointer', fontSize:'0.8rem', fontWeight:600}}>Save</button>
+            <button onClick={() => setShowAddHabit(false)} style={{padding:'5px 12px', background:'#e2e8f0', color:'#4a5568', border:'none', borderRadius:6, cursor:'pointer', fontSize:'0.8rem'}}>Cancel</button>
+          </div>
+        )}
+
+        <table className="tracker-table">
+          <thead>
+            {/* Week header */}
+            <tr className="week-header">
+              <th style={{textAlign:'left', paddingLeft:10}}>My Habits</th>
+              {weeks.map((week, wi) => {
+                const filled = week.filter(d => d !== null);
+                return filled.length > 0 ? (
+                  <th key={wi} colSpan={7} className="week-label">
+                    Week {wi + 1}
+                  </th>
+                ) : null;
+              })}
+            </tr>
+            {/* Day number + name header */}
+            <tr className="day-header">
+              <th className="habit-col"></th>
+              {weeks.map((week, wi) =>
+                week.map((day, di) => (
+                  <th key={`${wi}-${di}`} style={{
+                    background: day && isToday(day) ? '#ebf4ff' : day === null ? '#fafafa' : 'white',
+                    minWidth: 28,
+                  }}>
+                    {day ? (
+                      <>
+                        <div className="day-num" style={{ color: isToday(day) ? '#4c6ef5' : undefined }}>{day}</div>
+                        <div className="day-name">{DAYS_OF_WEEK[(getFirstDayOfWeek(currentYear, currentMonth) + allDays.indexOf(day)) % 7]}</div>
+                      </>
+                    ) : null}
+                  </th>
+                ))
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {habits.map(habit => (
+              <tr key={habit.id} className="habit-row">
+                <td className="habit-name-cell">
+                  <span className="habit-emoji">{habit.emoji}</span>
+                  {habit.name}
+                  <span
+                    onClick={() => removeHabit(habit.id)}
+                    title="Remove habit"
+                    style={{marginLeft:6, cursor:'pointer', color:'#cbd5e0', fontSize:'0.7rem'}}
+                  >✕</span>
+                </td>
+                {weeks.map((week, wi) =>
+                  week.map((day, di) => (
+                    <td
+                      key={`${wi}-${di}`}
+                      className={day === null ? 'empty-day' : isFuture(day) ? 'future-cell' : ''}
+                    >
+                      {day && (
+                        <input
+                          type="checkbox"
+                          className="day-checkbox"
+                          checked={!!data[`${habit.id}_${day}`]}
+                          onChange={() => toggleHabit(habit.id, day)}
+                        />
+                      )}
+                    </td>
+                  ))
+                )}
+              </tr>
+            ))}
+
+            {/* Progress rows */}
+            <tr className="progress-section" style={{borderTop:'2px solid #e2e8f0'}}>
+              <td className="label-cell" style={{fontWeight:700, fontSize:'0.7rem', color:'#4a5568'}}>Progress</td>
+              {weeks.map((week, wi) =>
+                week.map((day, di) => {
+                  const { pct } = getDayStats(day);
+                  return (
+                    <td key={`${wi}-${di}`}>
+                      {day && <span className="progress-pct">{pct}%</span>}
+                    </td>
+                  );
+                })
+              )}
+            </tr>
+            <tr className="progress-section">
+              <td className="label-cell">Done</td>
+              {weeks.map((week, wi) =>
+                week.map((day, di) => {
+                  const { done } = getDayStats(day);
+                  return <td key={`${wi}-${di}`}>{day && <span className="progress-done">{done}</span>}</td>;
+                })
+              )}
+            </tr>
+            <tr className="progress-section">
+              <td className="label-cell">Not Done</td>
+              {weeks.map((week, wi) =>
+                week.map((day, di) => {
+                  const { notDone } = getDayStats(day);
+                  return <td key={`${wi}-${di}`}>{day && <span className="progress-notdone">{notDone}</span>}</td>;
+                })
+              )}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Progress Chart */}
+      <div className="chart-section">
+        <div className="section-title">Daily Progress</div>
+        <div className="chart-container">
+          <canvas ref={chartRef}></canvas>
+        </div>
+      </div>
+
+      {/* Mood & Motivation */}
+      <div className="mood-section">
+        <table className="mood-table">
+          <thead>
+            <tr>
+              <th style={{textAlign:'left', paddingLeft:10, fontSize:'0.7rem', color:'#718096'}}>Mental State</th>
+              {weeks.map((week, wi) =>
+                week.map((day, di) => (
+                  <th key={`${wi}-${di}`} style={{fontSize:'0.62rem', color:'#a0aec0'}}>
+                    {day || ''}
+                  </th>
+                ))
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td className="mood-label">😊 Mood</td>
+              {weeks.map((week, wi) =>
+                week.map((day, di) => (
+                  <td key={`${wi}-${di}`}>
+                    {day && <MoodDot day={day} type="mood" />}
+                  </td>
+                ))
+              )}
+            </tr>
+            <tr>
+              <td className="mood-label">⚡ Motivation</td>
+              {weeks.map((week, wi) =>
+                week.map((day, di) => (
+                  <td key={`${wi}-${di}`}>
+                    {day && <MoodDot day={day} type="motivation" />}
+                  </td>
+                ))
+              )}
+            </tr>
+          </tbody>
+        </table>
+        <div style={{padding:'6px 14px', fontSize:'0.65rem', color:'#a0aec0'}}>
+          Click dots to rate: 🔴 Bad → 🟡 Okay → 🟢 Great
+        </div>
+      </div>
+
+      {/* Month tabs */}
+      <div className="tabs">
+        {['Annual','Dashboard'].map(t => (
+          <div key={t} className="tab special">{t}</div>
+        ))}
+        {MONTHS.map((m, i) => (
+          <div
+            key={m}
+            className={`tab ${currentMonth === i && currentYear === today.getFullYear() ? 'active' : ''}`}
+            onClick={() => { setCurrentMonth(i); setCurrentYear(today.getFullYear()); }}
+          >{m}</div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<HabitTracker />);
+</script>
+</body>
+</html>
